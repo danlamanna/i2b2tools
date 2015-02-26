@@ -1,0 +1,270 @@
+* i2b2tools
+** Downloading/Installing
+*** Cloning
+    Clone the project note the =--recursive= flag will clone the necessary submodules.
+    #+BEGIN_SRC shell
+      git clone --recursive git@github.com:danlamanna/i2b2tools.git
+    #+END_SRC
+*** Installing, running tests
+**** Installing
+     After cloning, run:
+     #+BEGIN_SRC sh
+       cd i2b2tools
+       pip install -r requirements.txt
+       python setup.py install            
+     #+END_SRC
+
+     This will install the dependencies as well.
+**** Running tests
+     i2b2tools uses the standard =unittest= module.
+     #+BEGIN_SRC sh
+       cd i2b2tools/tests
+       python tests.py
+     #+END_SRC
+** Licensing
+   Copyright 2015 Dan LaManna
+   
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+   
+   http://www.apache.org/licenses/LICENSE-2.0
+   
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+** Contributing
+*** Pull requests
+    Welcome! Be sure the changes you're incorporating are in this codebase and not part of a git submodule, particularly the =lib/standoff_annotations= directory which is present [[https://github.com/kotfic/i2b2_evaluation_scripts][here]].
+** Overview
+*** What is a StandoffAnnotation
+    This is an example of an XML file that can be represented using a StandoffAnnotation object:
+    #+BEGIN_SRC xml
+      <deIdi2b2>
+        <TEXT><![CDATA[
+        New York Hospital
+        123 Main St.
+        New York, New York
+        
+        Date: 2/20/2015
+
+        Patient John Doe presented on Friday with chest pains, etc.
+
+        John Smith, M.D.
+      ]]></TEXT>
+        <TAGS>
+          <LOCATION id="P1" start="3" end="20" text="New York Hospital" TYPE="HOSPITAL" comment="" />
+          <LOCATION id="P2" start="23" end="34" text="123 Main St" TYPE="STREET" comment="" />
+          <LOCATION id="P3" start="38" end="46" text="New York" TYPE="CITY" comment="" />
+          <LOCATION id="P4" start="48" end="56" text="New York" TYPE="STATE" comment="" />
+          <DATE id="P5" start="68" end="77" text="2/20/2015" TYPE="DATE" comment="" />
+          <NAME id="P6" start="89" end="97" text="John Doe" TYPE="PATIENT" comment="" />
+          <NAME id="P7" start="144" end="154" text="John Smith" TYPE="DOCTOR" comment="" />
+        </TAGS>
+      </deIdi2b2>
+    #+END_SRC
+
+    StandoffAnnotation's provide many helpers, such as giving access to a tokenizer for the document, altering the document text or PHI and re-saving the file to disk. Mainly however, they are what the evaluation scripts use, which can help easily determine the precision, recall, and F1 measure of a set of annotations.
+*** Libraries, Helpers, and Converters
+    This toolset offers a series of [[#libraries][libraries]] which can help with evaluating performance, tokenizing text, and altering StandoffAnnotations in a systematic way.
+
+    In addition there are many [[#helpers][helpers]] which assist in working with StandoffAnnotations by finding specific PHI, editing PHI, and looking at your documents more closely.
+
+    Finally, [[#converters][converters]] help in converting a StandoffAnnotation to an InlineAnnotation, and vice versa.
+** Documentation
+*** Libraries
+    Any of the libraries exist under the i2b2tools.lib submodule, so for example:
+    #+BEGIN_SRC python
+      from i2b2tools.lib import StandoffAnnotation
+    #+END_SRC
+    will import the StandoffAnnotation object.
+**** Standoff Annotations/Evaluation Scripts
+***** For additional information, see the documentation on the authors page, [[https://github.com/kotfic/i2b2_evaluation_scripts][i2b2_evaluation_scripts]].
+**** Tokenizer
+***** Changing how it tokenizes
+      By default, the regular expression for tokenizing is =(\w+)=, say you wanted to alter this to allow the "/" not to break up a token, you can change the tokenizer regular expression like so:
+      #+BEGIN_SRC python
+        from i2b2tools.lib import TokenSequence
+        import re
+
+        TokenSequence.tokenizer_re = re.compile(r'([\w/]+)')
+      #+END_SRC
+**** Rules and PostProcessors
+     Rules are the backbone of postprocessors. The idea of a postprocessor is to do postprocessing to a group of StandoffAnnotations so you can evaluate the F1 measures before and after.
+***** Rules
+      Ultimately a rule gets access to the StandoffAnnotation it needs to alter in some way, such as deleting PHI, editing PHI, etc. It does so by way of an *action*, and the action gets access to a *target*. See [[#built-in-rules][Built-in rules]].
+****** Targets
+       Every rule has a function which supplies a list of targets. For example, if you wanted to create a rule that could mark every token matching a regular expression as PHI, your targets function would probably return the output of =re.findall=.
+****** Action
+       The action looks at a single target and does something to it. In the example of marking a token matching a regular expression as PHI, you would delete any PHI presently at the point of the target, and re-create it. (There is already a built in RegexRule which does exactly that).
+***** PostProcessors
+      The base PostProcessor can be used as is, so let's see an example.
+
+      We want to mark all instances of John as a Person, and see how it improves our score.
+      #+BEGIN_SRC python
+        from i2b2tools.lib import PostProcessor
+
+        p = PostProcessor(system_sas, gold_sas, [(RegexRule, ["(John)", "NAME", "PERSON", NameTag])])
+
+        # run our rule(s)...
+        p.process()
+
+        # see how the F1 measure changed
+        p.summary() # .59 -> .71
+      #+END_SRC
+***** Built-in Rules
+****** RegexRule
+       This takes a regular expression and what it should be deemed in
+       terms of a tag for example, mark all instances of John/john as a
+       person:
+       : RegexRule, ["([Jj]ohn)", "NAME", "PERSON", NameTag]
+       
+       The regex needs to conform to match_group, meaning the part of the
+       regex that needs to be marked corresponds to a matching group in the
+       regex.
+****** RemoveRegexRule
+       Example being we have dates such as this:
+       : <DATE>10/5/2015</DATE>
+       
+       But in fact, we only want our PHI to match "10/5", so we can
+       trim it using a RemoveRegexRule as follows:
+       : RemoveRegexRule, ["\d{1,2}\/\d{1,2}(/\d{2,4})"], 0
+****** MergeRule
+       This merges multiple PHI into one based on a predicate function.
+       
+       A good example is using helpers.predicates._trigram_name_predicate
+       to solve an issue such as:
+       : <NAME>Edgar</NAME> Allan <NAME>Poe</NAME>
+       This could be rectified as:
+       : <NAME>Edgar Allan Poe</NAME>
+       
+       Using a merge rule such as:
+       : MergeRule, [3, "NAME", "POET", NameTag, _trigram_name_predicate]
+*** Helpers
+**** Validity/Collection
+***** is_valid_sa_file
+      Determines if a given file would constitute a valid StandoffAnnotation. It will return false if the file doesn't exist, or if it contains invalid XML.
+***** has_overlapping_phi
+      Determines if a given StandoffAnnotation has any PHI that overlap.
+***** get_sa_from_dir
+      Returns a dictionary in the format of:
+      ={"id": <StandoffAnnotation>}=
+
+      This is determined by finding all filenames within dirname that pass is_valid_sa_file.    
+**** PHI/Tokenizing
+***** phi_at_offset
+      Returns a list of PHI that are present at a given offset in a StandoffAnnotation.
+
+      So in the instance of the following document, denoted as =sa=:
+      #+BEGIN_SRC xml
+        <deIdi2b2>
+          <TEXT><![CDATA[Oh hey there Jeff. How are you doing today, 2/21/2015?]]></TEXT>
+          <TAGS>
+            <NAME id="P1" start="13" end="17" text="Jeff" TYPE="NAME" comment=""/>
+            <DATE id="P2" start="44" end="53" text="2/21/2015" TYPE="DATE" comment=""/>
+          </TAGS>
+        </deIdi2b2>
+      #+END_SRC
+
+      #+BEGIN_SRC python
+        phi_at_offset(sa, 14)
+      #+END_SRC
+      would yield the following:
+      =[<NameTag: NAME, 13, 17, NAME s:13 e:17>]=     
+***** phi_within_range
+      Using our above =sa=, we can find all PHI existing between a range.
+
+      #+BEGIN_SRC python
+        phi_within_range(sa, 17, 44)
+      #+END_SRC
+      would yield:
+      #+BEGIN_SRC results
+      [<NameTag: NAME, 13, 17, NAME s:13 e:17>,
+       <DateTag: DATE, 44, 53, DATE s:44 e:53>]
+      #+END_SRC
+***** sa_filter_by_phi_attrs
+      Allows filtering of PHI on a StandoffAnnotation based on a dictionary of attributes.
+
+      For example:
+      #+BEGIN_SRC python
+        sa_filter_by_phi_attrs(sa, {"name": "DATE", "TYPE": "YEAR"})
+      #+END_SRC
+***** n_tokens
+      Provides a "sliding window" of n tokens from a token sequence.
+
+      For instance, if your token sequence were:
+      : foo bar baz.
+
+      n_tokens with an n value of 2, would yield:
+      #+BEGIN_SRC results
+      [(<Token ''>, <Token 'foo'>),
+       (<Token 'foo'>, <Token 'bar'>),
+       (<Token 'bar'>, <Token 'baz'>)]
+      #+END_SRC
+***** get_sa_tagged_tokens
+      Returns a list of tuples containing each token in a token sequence of the document, and the PHI tag associated with that token, if any. This does not support StandoffAnnotation's with overlapping PHI.
+**** Remapping PHI Attributes
+***** remap_sa_attributes
+      This is a mutable function, so it will in fact call StandoffAnnotation.save which will attempt to overwrite the file on disk.
+      
+      So if somehow PHI that had a name of DATE were actually supposed to have a name of PHONE, you could perform this operation to a StandoffAnnotation:
+      #+BEGIN_SRC python
+        remap_sa_attributes(sa, {"name": "DATE"}, {"name": "PHONE"})
+      #+END_SRC
+*** Converters
+    Converters are one of the most helpful parts of i2b2tools, what's imperative is that each format can be converted back and forth without anything being lost in translation (especially whitespace) - because character offsets are vital to the format.
+    
+    If you create a converter, [[https://github.com/danlamanna/i2b2tools/compare][submit a pull request]] to get it added.
+**** Standoff to Inline
+     Looking at our [[#what-is-a-standoffannotation][initial document]], this is what it would look like after being converted to an inline document:
+     #+BEGIN_SRC xml
+       <ROOT>
+         <HOSPITAL>New York Hospital</HOSPITAL>
+         <STREET>123 Main St</STREET>.
+         <CITY>New York</CITY>, <STATE>New York</STATE>
+         
+         Date: <DATE>2/20/2015</DATE>
+
+         Patient <PATIENT>John Doe</PATIENT> presented on Friday with chest pains, etc.
+
+         <DOCTOR>John Smith</DOCTOR>, M.D.
+       </ROOT>            
+     #+END_SRC
+
+     This is useful because this is output similar to what certain classifiers output, namely Carafe and Stanford NER.
+**** Inline to Standoff
+     For completeness' sake - this is an example of an Inline Annotation converted to a standoff annotation:
+     #+BEGIN_SRC xml
+       <ROOT>
+         Record date: <DATE>2013-08-19</DATE>
+
+         Patient Name: <PATIENT>GOLDBERG, RUBE</PATIENT> [MRN: <MEDICALRECORD>12345</MEDICALRECORD>]
+
+         The <AGE>44</AGE> year old presented with things, and stuff.
+
+         <DOCTOR>Foo J. Bar</DOCTOR>
+       </ROOT>         
+     #+END_SRC
+
+     #+BEGIN_SRC xml
+       <deIdi2b2>
+         <TEXT><![CDATA[
+         Record date: 2013-08-19
+
+         Patient Name: GOLDBERG, RUBE [MRN: 12345]
+
+         The 44 year old presented with things, and stuff.
+
+         Foo J. Bar
+         ]]></TEXT>
+         <TAGS>
+           <DATE TYPE="DATE" comment="" end="26" id="P0" start="16" text="2013-08-19"/>
+           <NAME TYPE="PATIENT" comment="" end="58" id="P1" start="44" text="GOLDBERG, RUBE"/>
+           <ID TYPE="MEDICALRECORD" comment="" end="70" id="P2" start="65" text="12345"/>
+           <AGE TYPE="AGE" comment="" end="81" id="P3" start="79" text="44"/>
+           <NAME TYPE="DOCTOR" comment="" end="138" id="P4" start="128" text="Foo J. Bar"/>
+         </TAGS>
+       </deIdi2b2>
+     #+END_SRC

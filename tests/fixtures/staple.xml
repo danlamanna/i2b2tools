@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<deIdi2b2>
+  <TEXT><![CDATA[
+  New York Hospital
+  123 Main St.
+  New York, New York
+  
+  Date: 2/20/2015
+
+  Patient John DoeJeff presented on Friday with chest pains, etc.
+
+  John Smith, M.D.
+]]></TEXT>
+  <TAGS>
+    <LOCATION id="P1" start="3" end="20" text="New York Hospital" TYPE="HOSPITAL" comment="" />
+    <LOCATION id="P2" start="23" end="34" text="123 Main St" TYPE="STREET" comment="" />
+    <LOCATION id="P3" start="38" end="46" text="New York" TYPE="CITY" comment="" />
+    <LOCATION id="P4" start="48" end="56" text="New York" TYPE="STATE" comment="" />
+    <DATE id="P5" start="68" end="77" text="2/20/2015" TYPE="DATE" comment="" />
+    <NAME id="P6" start="89" end="97" text="John Doe" TYPE="PATIENT" comment="" />
+    <NAME id="P7" start="97" end="101" text="Jeff" TYPE="PATIENT" comment="" />
+    <NAME id="P8" start="148" end="158" text="John Smith" TYPE="DOCTOR" comment="" />
+  </TAGS>
+</deIdi2b2>

@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<deIdi2b2>
+  <TEXT><![CDATA[Oh hey there Jeff. How are you doing today, 2/21/2015?]]></TEXT>
+  <TAGS>
+    <NAME id="P1" start="13" end="17" text="Jeff" TYPE="NAME" comment=""/>
+    <DATE id="P2" start="44" end="53" text="2/21/2015" TYPE="DATE" comment=""/>
+  </TAGS>
+</deIdi2b2>
