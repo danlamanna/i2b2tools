@@ -1,6 +1,5 @@
 from i2b2tools.helpers.utils import has_overlapping_phi
 from i2b2tools.lib.standoff_annotations import StandoffAnnotation
-
 from i2b2tools.converters import TYPE_name_mapping
 
 from lxml import etree
