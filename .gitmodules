@@ -1,3 +1,0 @@
-[submodule "lib/standoff_annotations"]
-	path = lib/standoff_annotations
-	url = git@github.com:kotfic/i2b2_evaluation_scripts.git
